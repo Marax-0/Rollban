@@ -359,7 +359,26 @@ export default function SinglePage({ params }: { params: Promise<{ id: string }>
 
   const playTTS = useCallback(async (data: VisitInfo) => {
     try {
-      const text = `,ขอเชิญหมายเลข  ${String(data.visit_q_no || '').split('').join(' ')}  ที่  ${data.station || 'จุดบริการ'} ค่ะ`;
+      // สร้างข้อความสำหรับ TTS: "ขอเชิญหมายเลข [หมายเลข] [ชื่อ] [นามสกุล] ที่ [สถานี]"
+      const queueNumber = String(data.visit_q_no || '').split('').join(' ');
+      const patientName = data.name || '';
+      const patientSurname = data.surname || '';
+      const station = data.station || 'จุดบริการ';
+      
+      let text = '';
+      
+      // ตรวจสอบการตั้งค่า sound
+      const currentSetting = setting || defaultSetting;
+      if (currentSetting.c_sound === 'true') {
+        // c_sound = true: พูดแค่ "คิว"
+        text = `ขอเชิญหมายเลข ${queueNumber} ที่ ${station} ค่ะ`;
+      } else if (currentSetting.b_sound === 'true') {
+        // b_sound = true: พูดแค่ "คิว [หมายเลข] [ชื่อ]"
+        text = `ขอเชิญหมายเลข ${queueNumber} ${patientName} ที่ ${station} ค่ะ`;
+      } else {
+        // a_sound = true หรือ default: พูด "ขอเชิญหมายเลข [หมายเลข] [ชื่อ] [นามสกุล] ที่ [สถานี]"
+        text = `ขอเชิญหมายเลข ${queueNumber} ${patientName} ${patientSurname} ที่ ${station} ค่ะ`;
+      }
       
       // ใช้ Google TTS แทน browser TTS
       await playGoogleTTS({
@@ -385,7 +404,25 @@ export default function SinglePage({ params }: { params: Promise<{ id: string }>
       
       // Fallback ไปใช้ browser TTS
       if ('speechSynthesis' in window) {
-        const text = `,ขอเชิญหมายเลข  ${String(data.visit_q_no || '').split('').join(' ')}  ที่  ${data.station || 'จุดบริการ'} ค่ะ`;
+        const queueNumber = String(data.visit_q_no || '').split('').join(' ');
+        const patientName = data.name || '';
+        const patientSurname = data.surname || '';
+        const station = data.station || 'จุดบริการ';
+        
+        let text = '';
+        
+        // ตรวจสอบการตั้งค่า sound
+        const currentSetting = setting || defaultSetting;
+        if (currentSetting.c_sound === 'true') {
+          // c_sound = true: พูดแค่ "คิว"
+          text = `ขอเชิญหมายเลข ${queueNumber} ที่ ${station} ค่ะ`;
+        } else if (currentSetting.b_sound === 'true') {
+          // b_sound = true: พูดแค่ "คิว [หมายเลข] [ชื่อ]"
+          text = `ขอเชิญหมายเลข ${queueNumber} ${patientName} ที่ ${station} ค่ะ`;
+        } else {
+          // a_sound = true หรือ default: พูด "ขอเชิญหมายเลข [หมายเลข] [ชื่อ] [นามสกุล] ที่ [สถานี]"
+          text = `ขอเชิญหมายเลข ${queueNumber} ${patientName} ${patientSurname} ที่ ${station} ค่ะ`;
+        }
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.lang = 'th-TH';
         utterance.rate = 0.8;
@@ -403,7 +440,7 @@ export default function SinglePage({ params }: { params: Promise<{ id: string }>
         speechSynthesis.speak(utterance);
       }
     }
-  }, []);
+  }, [setting, defaultSetting]);
 
   // ตั้งค่า refs
   useEffect(() => {
