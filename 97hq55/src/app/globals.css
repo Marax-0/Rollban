@@ -1,0 +1,73 @@
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+  --font-sarabun: var(--font-sarabun), Arial, Helvetica, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: var(--font-sarabun);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  html {
+    color-scheme: dark;
+  }
+}
+
+/* Font utility classes */
+.font-sarabun {
+  font-family: var(--font-sarabun);
+}
+
+.font-sarabun-bold {
+  font-family: var(--font-sarabun);
+  font-weight: bold;
+}
+
+.font-sarabun-normal {
+  font-family: var(--font-sarabun);
+  font-weight: normal;
+}
+
+/* Example text styles */
+.heading-sarabun {
+  font-family: var(--font-sarabun);
+  font-weight: bold;
+  font-size: 2rem;
+  line-height: 1.2;
+}
+
+.body-sarabun {
+  font-family: var(--font-sarabun);
+  font-weight: normal;
+  font-size: 1rem;
+  line-height: 1.6;
+}
