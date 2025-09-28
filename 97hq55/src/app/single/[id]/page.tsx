@@ -85,6 +85,12 @@ export default function SinglePage({ params }: { params: Promise<{ id: string }>
   const [skippedData, setSkippedData] = useState<VisitInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastDataHash, setLastDataHash] = useState<string>('');
+  const [refreshInterval, setRefreshInterval] = useState<NodeJS.Timeout | null>(null);
+  const [settingRefreshInterval, setSettingRefreshInterval] = useState<NodeJS.Timeout | null>(null);
+  const isInitializedRef = useRef(false);
+  const autoRefreshStartedRef = useRef(false);
+  const lastSettingRef = useRef<Setting | null>(null);
   
   // Default setting object
   const [defaultSetting] = useState<Setting>({
@@ -141,6 +147,66 @@ export default function SinglePage({ params }: { params: Promise<{ id: string }>
   // ใช้ ref เพื่อหลีกเลี่ยง circular dependency
   const playTTSRef = useRef<(data: VisitInfo) => void>(() => {});
   const updateCallStatusRef = useRef<(vn: string) => void>(() => {});
+
+  // ฟังก์ชันสำหรับสร้าง hash ของข้อมูลเพื่อตรวจสอบการเปลี่ยนแปลง
+  const createDataHash = useCallback((data: VisitInfo[]) => {
+    if (!data || data.length === 0) return '';
+    
+    // สร้าง hash จาก id และข้อมูลสำคัญของแต่ละ record
+    const hashData = data.map(item => ({
+      id: item.id,
+      visit_q_no: item.visit_q_no,
+      name: item.name,
+      surname: item.surname,
+      status: item.status,
+      urgent_id: item.urgent_id,
+      station: item.station
+    }));
+    
+    return JSON.stringify(hashData);
+  }, []);
+
+  // ฟังก์ชันสำหรับตรวจสอบการเปลี่ยนแปลงในข้อมูล
+  const checkDataChanges = useCallback((newData: VisitInfo[], dataType: string) => {
+    const newHash = createDataHash(newData);
+    
+    if (lastDataHash !== newHash) {
+      console.log(`Data changed detected in ${dataType}:`, {
+        oldHash: lastDataHash.substring(0, 50) + '...',
+        newHash: newHash.substring(0, 50) + '...'
+      });
+      
+      setLastDataHash(newHash);
+      return true;
+    }
+    
+    return false;
+  }, [lastDataHash, createDataHash]);
+
+  // ฟังก์ชันสำหรับเปรียบเทียบ setting
+  const compareSettings = useCallback((oldSetting: Setting | null, newSetting: Setting) => {
+    if (!oldSetting) return true; // ถ้าไม่มี setting เก่า ให้ถือว่ามีการเปลี่ยนแปลง
+    
+    // เปรียบเทียบฟิลด์ที่สำคัญ
+    const fieldsToCompare = [
+      'department_load', 'department', 'n_hospital', 'n_room', 'n_table',
+      'station_l', 'station_r', 'urgent_color', 'urgent_level', 'status_patient',
+      'stem_surname', 'stem_surname_table', 'stem_surname_popup', 'stem_popup',
+      'a_sound', 'b_sound', 'c_sound', 'time_wait', 'amount_boxL', 'amount_boxR'
+    ];
+    
+    for (const field of fieldsToCompare) {
+      if (oldSetting[field as keyof Setting] !== newSetting[field as keyof Setting]) {
+        console.log(`Setting changed: ${field}`, {
+          old: oldSetting[field as keyof Setting],
+          new: newSetting[field as keyof Setting]
+        });
+        return true;
+      }
+    }
+    
+    return false;
+  }, []);
 
   // ฟังก์ชันสำหรับจัดการ error
   const handleError = useCallback((error: unknown, context: string) => {
@@ -217,6 +283,7 @@ export default function SinglePage({ params }: { params: Promise<{ id: string }>
   const resolvedParams = use(params);
   const id = resolvedParams.id;
 
+
   const fetchVisitData = useCallback(async (departmentLoad: string) => {
     try {
       // Get current date in yyyy-mm-dd format
@@ -234,14 +301,23 @@ export default function SinglePage({ params }: { params: Promise<{ id: string }>
       });
 
       if (result && result.success) {
-        setVisitData(result.data);
+        // ตรวจสอบการเปลี่ยนแปลงในข้อมูล
+        const hasChanges = checkDataChanges(result.data, 'visitData');
+        
+        if (hasChanges) {
+          console.log('Visit data has changed, updating...');
+          setVisitData(result.data);
+        } else {
+          console.log('No changes detected in visit data');
+        }
       } else if (result && !result.success) {
         console.error('Failed to fetch visit data:', result.error);
       }
     } catch (err) {
       handleError(err, 'fetchVisitData');
     }
-  }, [handleError, fetchWithErrorHandling]);
+  }, [handleError, fetchWithErrorHandling, checkDataChanges]);
+
 
   const fetchActiveData = useCallback(async (departmentLoad: string) => {
     try {
@@ -332,6 +408,110 @@ export default function SinglePage({ params }: { params: Promise<{ id: string }>
       handleError(err, 'fetchSkippedData');
     }
   }, [handleError, fetchWithErrorHandling]);
+
+  // ฟังก์ชันสำหรับ auto refresh ข้อมูล
+  const startAutoRefresh = useCallback((departmentLoad: string) => {
+    // ป้องกันการเรียกซ้ำ
+    if (autoRefreshStartedRef.current) {
+      console.log('Auto refresh already started, skipping...');
+      return;
+    }
+
+    // หยุด interval เดิมถ้ามี
+    if (refreshInterval) {
+      clearInterval(refreshInterval);
+      setRefreshInterval(null);
+    }
+
+    // เริ่ม interval ใหม่ (refresh ทุก 5 วินาที)
+    const interval = setInterval(async () => {
+      console.log('Auto refresh triggered...');
+      try {
+        await Promise.all([
+          fetchVisitData(departmentLoad),
+          fetchActiveData(departmentLoad),
+          fetchCallData(departmentLoad),
+          fetchSkippedData(departmentLoad)
+        ]);
+      } catch (error) {
+        console.error('Auto refresh error:', error);
+      }
+    }, 5000); // 5 วินาที
+
+    setRefreshInterval(interval);
+    autoRefreshStartedRef.current = true;
+  }, [refreshInterval, fetchVisitData, fetchActiveData, fetchCallData, fetchSkippedData]);
+
+  // ฟังก์ชันสำหรับดึง setting และเปรียบเทียบ
+  const fetchAndCompareSetting = useCallback(async (settingId: string) => {
+    try {
+      const result = await fetchWithErrorHandling(`/api/setting/${settingId}`);
+      
+      if (result && result.success) {
+        const newSetting = result.data;
+        const hasChanged = compareSettings(lastSettingRef.current, newSetting);
+        
+        if (hasChanged) {
+          console.log('🔄 Setting has changed, refreshing all data...');
+          
+          // อัปเดต setting
+          setSetting(newSetting);
+          lastSettingRef.current = newSetting;
+          
+          // Refresh ข้อมูลทั้งหมด
+          if (newSetting.department_load) {
+            await Promise.all([
+              fetchVisitData(newSetting.department_load),
+              fetchActiveData(newSetting.department_load),
+              fetchCallData(newSetting.department_load),
+              fetchSkippedData(newSetting.department_load)
+            ]);
+          }
+        } else {
+          console.log('✅ Setting unchanged');
+        }
+      } else if (result && !result.success) {
+        console.error('Failed to fetch setting:', result.error);
+      }
+    } catch (err) {
+      handleError(err, 'fetchAndCompareSetting');
+    }
+  }, [fetchWithErrorHandling, compareSettings, fetchVisitData, fetchActiveData, fetchCallData, fetchSkippedData, handleError]);
+
+  // ฟังก์ชันสำหรับเริ่ม setting refresh
+  const startSettingRefresh = useCallback((settingId: string) => {
+    // หยุด interval เดิมถ้ามี
+    if (settingRefreshInterval) {
+      clearInterval(settingRefreshInterval);
+      setSettingRefreshInterval(null);
+    }
+
+    // เริ่ม interval ใหม่ (ตรวจสอบ setting ทุก 5 วินาที)
+    const interval = setInterval(async () => {
+      console.log('🔍 Checking setting for changes...');
+      await fetchAndCompareSetting(settingId);
+    }, 5000); // 5 วินาที
+
+    setSettingRefreshInterval(interval);
+    console.log('🚀 Setting refresh started (every 5 seconds)');
+  }, [settingRefreshInterval, fetchAndCompareSetting]);
+
+
+  // ฟังก์ชันสำหรับหยุด auto refresh
+  const stopAutoRefresh = useCallback(() => {
+    if (refreshInterval) {
+      clearInterval(refreshInterval);
+      setRefreshInterval(null);
+    }
+  }, [refreshInterval]);
+
+  // ฟังก์ชันสำหรับหยุด setting refresh
+  const stopSettingRefresh = useCallback(() => {
+    if (settingRefreshInterval) {
+      clearInterval(settingRefreshInterval);
+      setSettingRefreshInterval(null);
+    }
+  }, [settingRefreshInterval]);
 
   const updateCallStatus = useCallback(async (vn: string) => {
     try {
@@ -449,6 +629,9 @@ export default function SinglePage({ params }: { params: Promise<{ id: string }>
   }, [playTTS, updateCallStatus]);
 
   useEffect(() => {
+    // ป้องกันการทำงานซ้ำ
+    if (isInitializedRef.current) return;
+    
     const fetchSetting = async () => {
       try {
         setLoading(true);
@@ -466,6 +649,17 @@ export default function SinglePage({ params }: { params: Promise<{ id: string }>
               fetchCallData(result.data.department_load),
               fetchSkippedData(result.data.department_load)
             ]);
+            
+            // เริ่ม auto refresh
+            startAutoRefresh(result.data.department_load);
+            
+            // เริ่ม setting refresh
+            startSettingRefresh(id);
+            
+            // เก็บ setting ไว้เปรียบเทียบ
+            lastSettingRef.current = result.data;
+            
+            isInitializedRef.current = true;
           }
         } else if (result && !result.success) {
           setError(result.error || 'Failed to fetch setting');
@@ -480,24 +674,45 @@ export default function SinglePage({ params }: { params: Promise<{ id: string }>
     if (id) {
       fetchSetting();
     }
-  }, [id, fetchVisitData, fetchActiveData, fetchCallData, fetchSkippedData, retryConnection, handleError, fetchWithErrorHandling]);
+
+    // Cleanup function
+    return () => {
+      isInitializedRef.current = false;
+      autoRefreshStartedRef.current = false;
+      stopAutoRefresh();
+      stopSettingRefresh();
+    };
+  }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Use Server-Sent Events for realtime updates
   useEffect(() => {
     if (!setting || !setting.department_load) return;
 
     const today = new Date().toISOString().split('T')[0];
-    const eventSource = new EventSource(
-      `/api/data/realtime?department_load=${encodeURIComponent(setting.department_load)}&visit_date=${today}`
-    );
+    const sseUrl = `/api/data/realtime?department_load=${encodeURIComponent(setting.department_load)}&visit_date=${today}`;
+    
+    console.log('🔗 Connecting to SSE:', sseUrl);
+    
+    const eventSource = new EventSource(sseUrl);
+
+    eventSource.onopen = () => {
+      console.log('✅ SSE Connection opened');
+    };
 
     eventSource.onmessage = (event) => {
       try {
+        // ตรวจสอบว่า event.data มีข้อมูลหรือไม่
+        if (!event.data) {
+          console.log('SSE: Empty data received');
+          return;
+        }
+
         const data = JSON.parse(event.data);
         
         if (data.type === 'update') {
-          setVisitData(data.visitData);
-          setActiveData(data.activeData);
+          console.log('📡 SSE Update received');
+          setVisitData(data.visitData || []);
+          setActiveData(data.activeData || []);
           
           // Check for call data and skipped data separately
           if (setting?.department_load) {
@@ -505,22 +720,38 @@ export default function SinglePage({ params }: { params: Promise<{ id: string }>
             fetchSkippedData(setting.department_load);
           }
         } else if (data.type === 'error') {
-          console.error('SSE Error:', data.message);
+          console.error('SSE Server Error:', data.message || 'Unknown server error');
+        } else {
+          console.log('SSE: Unknown message type:', data.type);
         }
       } catch (error) {
         console.error('Error parsing SSE data:', error);
+        console.error('Raw SSE data:', event.data);
       }
     };
 
     eventSource.onerror = (error) => {
-      console.error('SSE Error:', error);
-      eventSource.close();
+      console.error('SSE Connection Error:', error);
+      
+      // ตรวจสอบสถานะการเชื่อมต่อ
+      if (eventSource.readyState === EventSource.CLOSED) {
+        console.log('🔌 SSE Connection closed');
+      } else if (eventSource.readyState === EventSource.CONNECTING) {
+        console.log('🔄 SSE Reconnecting...');
+      } else if (eventSource.readyState === EventSource.OPEN) {
+        console.log('✅ SSE Connection is open');
+      } else {
+        console.log('❓ SSE Connection state unknown, attempting to reconnect...');
+      }
+      
+      // ไม่ต้องปิด connection ทันที ให้ระบบพยายาม reconnect
+      // eventSource.close();
     };
 
     return () => {
       eventSource.close();
     };
-  }, [setting, fetchCallData]);
+  }, [setting, fetchCallData, fetchSkippedData]);
 
   // Function to split queue number into letter and number
   const splitQueueNumber = useCallback((queueNo: string | number | null | undefined) => {
