@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>การตั้งค่า - ระบบจัดการหน้าจอ</title>
+  <link rel="icon" href="./src/image/logo_hospitol.png" />
+  <link href="https://cdn.jsdelivr.net/npm/flowbite@2.5.2/dist/flowbite.min.css" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@100;200;300;400;500;600;700&display=swap');
+  * { font-family: "IBM Plex Sans Thai", serif; margin: 0; padding: 0; box-sizing: border-box; }
+  .gradient-bg { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #3b82f6 100%); }
+  .card-shadow { box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); }
+  .hover-scale { transition: all 0.3s ease; }
+  .hover-scale:hover { transform: scale(1.02); }
+  
+  /* Fixed text transitions to prevent overlapping */
+  .intro-fade-1 {
+    opacity: 0;
+    transform: translateY(30px);
+    animation: fadeInUp 0.8s ease-out 0.2s forwards;
+  }
+  
+  .intro-fade-2 {
+    opacity: 0;
+    transform: translateY(30px);
+    animation: fadeInUp 0.8s ease-out 0.6s forwards;
+  }
+  
+  .intro-fade-3 {
+    opacity: 0;
+    transform: translateY(30px);
+    animation: fadeInUp 0.8s ease-out 1.0s forwards;
+  }
+  
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  /* Welcome intro overlay */
+  .loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: 
+      radial-gradient(circle at 20% 80%, rgba(15, 15, 35, 0.8) 0%, transparent 50%),
+      radial-gradient(circle at 80% 20%, rgba(26, 26, 46, 0.6) 0%, transparent 50%),
+      radial-gradient(circle at 40% 40%, rgba(22, 33, 62, 0.4) 0%, transparent 50%),
+      linear-gradient(135deg, #0a0a1a 0%, #0f0f23 25%, #1a1a2e 50%, #16213e 75%, #0c1445 100%);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    transition: opacity 1.2s ease-out;
+    overflow: hidden;
+    font-family: 'IBM Plex Sans Thai', serif;
+  }
+  
+  .loading-overlay.fade-out {
+    opacity: 0;
+    pointer-events: none;
+  }
+  
+  /* Welcome container */
+  .welcome-container {
+    text-align: center;
+    max-width: 800px;
+    padding: 40px;
+    color: white;
+    position: relative;
+  }
+  
+  /* Added logo styling */
+  .welcome-logo {
+    width: 120px;
+    height: 120px;
+    margin: 0 auto 2rem;
+    opacity: 0;
+    transform: scale(0.8);
+    animation: logoAppear 1.5s ease-out 0.2s forwards;
+  }
+  
+  @keyframes logoAppear {
+    from {
+      opacity: 0;
+      transform: scale(0.8) rotate(-10deg);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) rotate(0deg);
+    }
+  }
+  
+  /* Floating particles background */
+  .particles {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  
+  .particle {
+    position: absolute;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 50%;
+    animation: float 6s ease-in-out infinite;
+    box-shadow: 0 0 6px rgba(255, 255, 255, 0.1);
+  }
+  
+  @keyframes float {
+    0%, 100% { transform: translateY(0px) rotate(0deg); opacity: 0.3; }
+    50% { transform: translateY(-20px) rotate(180deg); opacity: 0.8; }
+  }
+  
+  /* Fixed sequential text animations to prevent overlapping */
+  .welcome-title {
+    font-size: 3.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    opacity: 0;
+    transform: translateY(50px);
+    animation: slideInUp 1.2s ease-out 1.8s forwards;
+    background: linear-gradient(45deg, #ffffff, #e0e7ff, #c7d2fe);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 4px 20px rgba(255, 255, 255, 0.3);
+  }
+  
+  .welcome-subtitle {
+    font-size: 1.5rem;
+    font-weight: 400;
+    margin-bottom: 2rem;
+    opacity: 0;
+    transform: translateY(30px);
+    animation: slideInUp 1.2s ease-out 3.2s forwards;
+    color: #e0e7ff;
+  }
+  
+  .welcome-description {
+    font-size: 1.1rem;
+    line-height: 1.8;
+    margin-bottom: 1.5rem;
+    opacity: 0;
+    transform: translateY(20px);
+    color: #c7d2fe;
+    position: absolute;
+    width: 100%;
+    left: 0;
+    transition: opacity 0.8s ease-out;
+  }
+  
+  /* Sequential text with proper fade out/in timing */
+  .desc-1 { 
+    animation: textSequence 3s ease-out 4.5s forwards;
+    position: relative;
+  }
+  .desc-2 { 
+    animation: textSequence 3s ease-out 7.8s forwards;
+    position: relative;
+  }
+  .desc-3 { 
+    animation: textSequence 3s ease-out 11.1s forwards;
+    position: relative;
+  }
+  .desc-4 { 
+    animation: textSequence 3s ease-out 14.4s forwards;
+    position: relative;
+  }
+  
+  @keyframes textSequence {
+    0% {
+      opacity: 0;
+      transform: translateY(30px);
+    }
+    15%, 85% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    100% {
+      opacity: 0;
+      transform: translateY(-20px);
+    }
+  }
+  
+  @keyframes slideInUp {
+    from {
+      opacity: 0;
+      transform: translateY(30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  /* Loading progress */
+  .progress-container {
+    margin-top: 3rem;
+    opacity: 0;
+    animation: fadeIn 0.8s ease-out 13.5s forwards;
+  }
+  
+  .progress-bar {
+    width: 300px;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+    margin: 0 auto 1rem;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
+  
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #3b82f6, #8b5cf6, #ec4899);
+    border-radius: 2px;
+    width: 0%;
+    animation: fillProgress 3s ease-out 13.8s forwards;
+    box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+  }
+  
+  @keyframes fillProgress {
+    to { width: 100%; }
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  
+  .progress-text {
+    font-size: 0.9rem;
+    color: #e0e7ff;
+    opacity: 0;
+    animation: fadeIn 0.5s ease-out 14s forwards;
+  }
+  
+  /* Responsive design */
+  @media (max-width: 768px) {
+    .welcome-title { font-size: 2.5rem; }
+    .welcome-subtitle { font-size: 1.2rem; }
+    .welcome-description { font-size: 1rem; }
+    .welcome-container { padding: 20px; }
+    .welcome-logo { width: 80px; height: 80px; }
+  }
+</style>
+<body class="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 min-h-screen">
+  <!-- Enhanced welcome intro with logo and sequential text -->
+  <div id="loadingOverlay" class="loading-overlay">
+    <!-- Floating particles -->
+    <div class="particles">
+      <div class="particle" style="left: 10%; top: 20%; width: 4px; height: 4px; animation-delay: 0s;"></div>
+      <div class="particle" style="left: 20%; top: 80%; width: 6px; height: 6px; animation-delay: 1s;"></div>
+      <div class="particle" style="left: 80%; top: 30%; width: 3px; height: 3px; animation-delay: 2s;"></div>
+      <div class="particle" style="left: 70%; top: 70%; width: 5px; height: 5px; animation-delay: 3s;"></div>
+      <div class="particle" style="left: 30%; top: 10%; width: 4px; height: 4px; animation-delay: 4s;"></div>
+      <div class="particle" style="left: 90%; top: 60%; width: 3px; height: 3px; animation-delay: 5s;"></div>
+    </div>
+    
+    <div class="welcome-container">
+      <!-- Added logo from specified path -->
+      <div class="welcome-logo">
+        <img src="./src/image/logo_qfit.png" alt="QFIT Logo" class="w-full h-full object-contain filter drop-shadow-lg" />
+      </div>
+      
+      <h1 class="welcome-title">ยินดีต้อนรับ | Welcome</h1>
+      <p class="welcome-subtitle">สู่ระบบจัดการหน้าจอโรงพยาบาล<br>Hospital Display Management System</p>
+      
+      <div style="position: relative; height: 80px; margin: 2rem 0;">
+        <!-- Simplified to large text only, removed small descriptions -->
+        <div class="welcome-description desc-1" style="font-size: 2rem; font-weight: 600;">
+          ยินดีต้อนรับสู่ระบบ QFIT
+        </div>
+        
+        <div class="welcome-description desc-2" style="font-size: 2rem; font-weight: 600;">
+          Hospital Display Management
+        </div>
+        
+        <div class="welcome-description desc-3" style="font-size: 2rem; font-weight: 600;">
+          ระบบจัดการหน้าจอโรงพยาบาล
+        </div>
+        
+        <div class="welcome-description desc-4" style="font-size: 2 rem; font-weight: 600;">
+          เชื่อมต่อกับฐานข้อมูลสำเร็จ
+        </div>
+      </div>
+      
+      <div class="progress-container">
+        <div class="progress-bar">
+          <div class="progress-fill"></div>
+        </div>
+        <p class="progress-text">เชื่อมต่อฐานข้อมูลสำเร็จ | Database Connected Successfully</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile Navigation Toggle -->
+  <div class="lg:hidden fixed top-4 right-4 z-50">
+    <button id="mobileMenuToggle" class="bg-white p-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+      <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+      </svg>
+    </button>
+  </div>
+
+  <div class="flex flex-col lg:flex-row gap-6 p-4 lg:p-6">
+    <!-- Sidebar -->
+    <aside id="sidebar" class="fixed bg-white w-full lg:w-80 top-6 flex flex-col justify-start gap-8 z-40 transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out rounded-2xl card-shadow border-r border-gray-200 intro-fade-1" style="height: calc(100vh - 50px);">
+      <div class="p-6 text-center border-b border-gray-100">
+        <div class="relative mb-4">
+          <div class="w-20 h-20 mx-auto bg-gray-50 rounded-full p-2 shadow-sm border border-gray-200">
+            <img src="./src/image/logo_hospitol.png" alt="Logo" class="w-full h-full object-contain" />
+          </div>
+        </div>
+        <h1 class="text-gray-800 font-bold text-2xl mb-2">ระบบจัดการ</h1>
+        <p class="text-gray-600 text-sm">หน้าจอ</p>
+      </div>
+      <nav class="flex-1 px-6">
+        <ul class="space-y-3">
+          <li>
+            <a href="./index.html" class="group flex items-center px-4 py-3 text-gray-600 rounded-xl transition-all duration-300 hover:bg-gray-50 hover:text-gray-800 hover:border hover:border-gray-200">
+              <i class="fas fa-home text-lg mr-3 text-gray-500 group-hover:scale-110 transition-transform duration-300"></i>
+              <span class="font-medium">หน้าแรก</span>
+            </a>
+          </li>
+          <li>
+            <a href="./setting.html" class="group flex items-center px-4 py-3 text-gray-700 bg-blue-50 border border-blue-200 rounded-xl transition-all duration-300 hover:bg-blue-100 hover:border-blue-300">
+              <i class="fas fa-cog text-lg mr-3 text-blue-600 group-hover:rotate-90 transition-transform duration-300"></i>
+              <span class="font-semibold text-blue-800">การตั้งค่า</span>
+              <div class="ml-auto bg-blue-600 text-white px-2 py-1 rounded-full text-xs font-medium">Active</div>
+            </a>
+          </li>
+          <li>
+            <a href="./manage.html" class="group flex items-center px-4 py-3 text-gray-600 rounded-xl transition-all duration-300 hover:bg-gray-50 hover:text-gray-800 hover:border hover:border-gray-200">
+              <i class="fas fa-desktop text-lg mr-3 text-gray-500 group-hover:scale-110 transition-transform duration-300"></i>
+              <span class="font-medium">Demo</span>
+            </a>
+          </li>
+          <li>
+            <a href="./contact.html" class="group flex items-center px-4 py-3 text-gray-600 rounded-xl transition-all duration-300 hover:bg-gray-50 hover:text-gray-800 hover:border hover:border-gray-200">
+              <i class="fas fa-phone text-lg mr-3 text-gray-500 group-hover:scale-110 transition-transform duration-300"></i>
+              <span class="font-medium">ติดต่อ</span>
+            </a>
+          </li>
+          <li>
+            <a href="./ads.html" class="group flex items-center px-4 py-3 text-gray-600 rounded-xl transition-all duration-300 hover:bg-gray-50 hover:text-gray-800 hover:border hover:border-gray-200">
+              <i class="fas fa-ad text-lg mr-3 text-gray-500 group-hover:scale-110 transition-transform duration-300"></i>
+              <span class="font-medium">โฆษณา</span>
+            </a>
+          </li>
+        </ul>
+      </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <section class="bg-white w-full rounded-2xl card-shadow mt-[0px] lg:ml-[330px] overflow-hidden intro-fade-2">
+      <div class="gradient-bg p-6 text-white">
+        <div class="flex items-center justify-between">
+          <div>
+            <h1 class="text-2xl font-bold mb-1">การตั้งค่าระบบ</h1>
+            <p class="text-blue-100">System Configuration & Settings</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="p-6">
+        <div class="mb-8">
+          <div class="flex items-center mb-6">
+            <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mr-4">
+              <i class="fas fa-cog text-blue-600 text-xl"></i>
+            </div>
+            <div>
+              <h1 class="text-3xl font-bold text-gray-800">ตั้งค่าหน้าจอ</h1>
+              <p class="text-gray-600">Screen Configuration & Display Settings</p>
+            </div>
+          </div>
+
+          <form id="settingsForm" class="w-full flex flex-col items-center justify-center intro-fade-3">
+            <div class="w-full max-w-6xl">
+              <!-- Monitor Selection -->
+              <div class="bg-white p-6 rounded-2xl border border-gray-200 mb-8 hover-scale shadow-sm">
+                <div class="bg-gradient-to-r from-indigo-500 to-blue-500 -m-6 mb-6 p-4 rounded-t-2xl">
+                  <h3 class="text-xl font-bold text-white flex items-center">
+                    <i class="fas fa-tv mr-3"></i>การเลือกหน้าจอ
+                  </h3>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div>
+                    <label for="typeMonitor" class="block mb-3 text-sm font-semibold text-gray-700">ตำแหน่งจอ</label>
+                    <select id="typeMonitor" name="typeMonitor" class="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-300 bg-gray-50 shadow-sm">
+                      <option selected>โปรดเลือกหน้าจอ</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label for="typeSide" class="block mb-3 text-sm font-semibold text-gray-700">ประเภทหน้าจอ</label>
+                    <select id="typeSide" name="typeSide" class="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-300 bg-gray-50 shadow-sm">
+                      <option selected>ประเภทหน้าจอ</option>
+                      <option value="1">หน้าจอที่ 1</option>
+                      <option value="2">หน้าจอที่ 2</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Header Section -->
+              <div class="bg-white p-6 rounded-2xl border border-gray-200 mb-8 hover-scale shadow-sm">
+                <div class="bg-gradient-to-r from-indigo-500 to-purple-500 -m-6 mb-6 p-4 rounded-t-2xl">
+                  <h3 class="text-xl font-bold text-white flex items-center">
+                    <i class="fas fa-heading mr-3"></i>ส่วนหัว
+                  </h3>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  <div>
+                    <label for="n_hospital" class="block mb-3 text-sm font-semibold text-gray-700">ชื่อโรงพยาบาล</label>
+                    <input type="text" id="n_hospital" name="n_hospital" class="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-300 bg-gray-50 shadow-sm" placeholder="ชื่อโรงพยาบาล" />
+                  </div>
+                  <div>
+                    <label for="n_department" class="block mb-3 text-sm font-semibold text-gray-700">ชื่อแผนก</label>
+                    <input type="text" id="n_department" name="n_department" class="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-300 bg-gray-50 shadow-sm" placeholder="ชื่อแผนก" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Submit Button -->
+              <div class="flex w-full items-center justify-center mt-12">
+                <button type="submit" id="submit" class="gradient-bg text-white font-bold rounded-xl px-8 py-4 text-lg hover:shadow-xl transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-300">
+                  <i class="fas fa-save mr-2"></i>บันทึกการตั้งค่า
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Mobile Menu Overlay -->
+  <div id="mobileMenuOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden hidden"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/flowbite@2.5.2/dist/flowbite.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      setTimeout(() => {
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        loadingOverlay.classList.add('fade-out');
+        
+        setTimeout(() => {
+          loadingOverlay.style.display = 'none';
+        }, 1200);
+      }, 18000); // Extended timing to accommodate longer text sequences
+    });
+
+    // Load screens list
+    async function loadScreensList() {
+      try {
+        const response = await fetch('/api/screens/list');
+        const data = await response.json();
+        
+        if (data.success) {
+          const select = document.getElementById('typeMonitor');
+          data.screens.forEach(screen => {
+            const option = document.createElement('option');
+            option.value = screen.id;
+            option.textContent = `${screen.id} | ${screen.department}`;
+            select.appendChild(option);
+          });
+        }
+      } catch (error) {
+        console.error('Error loading screens:', error);
+      }
+    }
+
+    // Load settings when monitor is selected
+    document.getElementById('typeMonitor').addEventListener('change', async function() {
+      const monitorId = this.value;
+      
+      if (monitorId && monitorId !== 'โปรดเลือกหน้าจอ') {
+        try {
+          const response = await fetch('/api/settings/get', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ monitorId })
+          });
+          
+          const data = await response.json();
+          
+          if (data.success) {
+            // Populate form fields
+            document.getElementById('n_hospital').value = data.hospital;
+            document.getElementById('n_department').value = data.department;
+            // Add more fields as needed
+          }
+        } catch (error) {
+          console.error('Error loading settings:', error);
+        }
+      }
+    });
+
+    // Handle form submission
+    document.getElementById('settingsForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      const formData = new FormData(this);
+      const data = Object.fromEntries(formData);
+      
+      try {
+        const response = await fetch('/api/settings/update', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          alert('บันทึกการตั้งค่าสำเร็จ!');
+        } else {
+          alert('เกิดข้อผิดพลาดในการบันทึก');
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        alert('เกิดข้อผิดพลาดในการบันทึก');
+      }
+    });
+
+    // Mobile menu functionality
+    const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+    const sidebar = document.getElementById('sidebar');
+    const mobileMenuOverlay = document.getElementById('mobileMenuOverlay');
+
+    function toggleMobileMenu() {
+      const isOpen = !sidebar.classList.contains('-translate-x-full');
+      if (isOpen) {
+        sidebar.classList.add('-translate-x-full');
+        mobileMenuOverlay.classList.add('hidden');
+      } else {
+        sidebar.classList.remove('-translate-x-full');
+        mobileMenuOverlay.classList.remove('hidden');
+      }
+    }
+
+    if (mobileMenuToggle) {
+      mobileMenuToggle.addEventListener('click', toggleMobileMenu);
+    }
+    if (mobileMenuOverlay) {
+      mobileMenuOverlay.addEventListener('click', toggleMobileMenu);
+    }
+
+    // Close mobile menu on window resize
+    window.addEventListener('resize', () => {
+      if (window.innerWidth >= 1024) {
+        sidebar.classList.remove('-translate-x-full');
+        if (mobileMenuOverlay) {
+          mobileMenuOverlay.classList.add('hidden');
+        }
+      } else {
+        sidebar.classList.add('-translate-x-full');
+        if (mobileMenuOverlay) {
+          mobileMenuOverlay.classList.add('hidden');
+        }
+      }
+    });
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+      loadScreensList();
+    });
+  </script>
+</body>
+</html>
